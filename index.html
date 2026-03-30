@@ -228,11 +228,11 @@
         }
         
         /* ===== 横竖屏适配 ===== */
-        /* 竖屏模式 - 保持左右布局，缩小比例 */
+        /* 竖屏模式 - 上下布局 */
         @media (orientation: portrait) {
-            .container { flex-direction: row; }
-            .left-panel { height: 100vh; }
-            .right-panel { height: 100vh; overflow-y: auto; }
+            .container { flex-direction: column; }
+            .left-panel { height: 55vh; flex-shrink: 0; }
+            .right-panel { height: 45vh; overflow-y: auto; }
             .hint-text { font-size: 10px; padding: 6px 12px; }
             .gyro-btn, .fullscreen-btn { font-size: 11px; padding: 6px 10px; }
             .fullscreen-btn { right: 110px; bottom: 12px; }
