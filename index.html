@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>五折幕裸眼3D演示</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Microsoft YaHei', sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+        }
+        .container { display: flex; height: 100vh; }
+
+        /* ===== 左侧3D视图 ===== */
+        .left-panel { width: 62%; position: relative; background: #000; }
+        #viewer3d { width: 100%; height: 100%; display: block; }
+        .panel-title {
+            position: absolute; top: 14px; left: 14px;
+            background: rgba(0,0,0,0.7); padding: 7px 16px;
+            border-radius: 20px; font-size: 13px; color: #00d4ff; z-index: 10;
+        }
+        .view-indicator {
+            position: absolute; top: 14px; right: 14px;
+            background: rgba(0,0,0,0.82); padding: 13px 18px;
+            border-radius: 12px; text-align: center; z-index: 10;
+        }
+        .view-indicator .vi-title { font-size: 10px; color: #666; margin-bottom: 7px; }
+        .view-indicator .vi-angles { display: flex; gap: 18px; }
+        .view-indicator .vi-item .vi-label { font-size: 10px; color: #666; margin-bottom: 2px; }
+        .view-indicator .vi-item .vi-val { font-size: 17px; font-weight: bold; color: #00d4ff; }
+        .view-indicator .vi-dist { font-size: 10px; color: #ff6b6b; margin-top: 7px; padding-top: 7px; border-top: 1px solid #2a2a2a; }
+        .view-indicator .vi-height { font-size: 10px; color: #66ff99; margin-top: 3px; }
+        .hint-text {
+            position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.75); padding: 8px 18px;
+            border-radius: 18px; font-size: 12px; color: #888;
+        }
+        .gyro-btn {
+            position: absolute; bottom: 14px; right: 14px;
+            background: rgba(0,0,0,0.8); padding: 8px 16px;
+            border-radius: 18px; font-size: 12px; color: #888;
+            border: 1px solid #333; cursor: pointer;
+            transition: all 0.3s;
+        }
+        .gyro-btn:hover { border-color: #00d4ff; color: #00d4ff; }
+        .gyro-btn.active { background: #00d4ff22; border-color: #00d4ff; color: #00d4ff; }
+        .gyro-btn:active { transform: scale(0.95); }
+        .fullscreen-btn {
+            position: absolute; bottom: 14px; right: 120px;
+            background: rgba(0,0,0,0.8); padding: 8px 16px;
+            border-radius: 18px; font-size: 12px; color: #888;
+            border: 1px solid #333; cursor: pointer; transition: all 0.3s;
+            z-index: 100;
+        }
+        .fullscreen-btn:hover { border-color: #ff9900; color: #ff9900; }
+        .fullscreen-btn.active { border-color: #ff9900; color: #ff9900; }
+        #gyro-hint {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            background: rgba(0,0,0,0.92); padding: 30px 40px;
+            border-radius: 14px; text-align: center; z-index: 200;
+            border: 1px solid #333; display: none;
+        }
+        #gyro-hint.show { display: block; }
+        #gyro-hint p { font-size: 14px; margin-bottom: 20px; color: #ccc; }
+        .gyro-hint-btn {
+            padding: 10px 28px; background: #00d4ff; border: none;
+            border-radius: 8px; color: #000; font-size: 14px; font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* ===== 右侧面板 ===== */
+        .right-panel { width: 38%; display: flex; flex-direction: column; background: #0d0d0d; }
+
+        /* 小预览区 */
+        .screen-previews { padding: 12px 12px 6px; flex-shrink: 0; }
+        .preview-title { font-size: 11px; color: #666; margin-bottom: 7px; }
+        .screens-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 5px; }
+        .screen-item {
+            background: #1a1a1a; border-radius: 5px; overflow: hidden;
+            border: 2px solid #2a2a2a; cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .screen-item:hover { border-color: #00d4ff88; }
+        .screen-item canvas { width: 100%; height: 38px; display: block; }
+        .screen-label { font-size: 9px; padding: 2px 4px; background: #222; color: #888; text-align: center; }
+        .screen-item.has-custom { border-color: #00d4ff66; }
+        .screen-item.has-video { border-color: #ff9900aa; }
+
+        /* 控制面板 */
+        .controls { flex: 1; padding: 10px 12px; overflow-y: auto; }
+        .control-section {
+            background: #161616; border-radius: 8px;
+            padding: 11px 12px; margin-bottom: 9px;
+        }
+        .section-title {
+            font-size: 11px; color: #00d4ff;
+            margin-bottom: 10px; padding-bottom: 6px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        /* ===== 5面上传列表 ===== */
+        .face-list { display: flex; flex-direction: column; gap: 6px; }
+        .face-row {
+            display: flex; align-items: center; gap: 7px;
+            background: #1e1e1e; border-radius: 7px; padding: 6px 8px;
+            border: 1px solid #2a2a2a; transition: border-color 0.2s;
+        }
+        .face-row.has-image { border-color: #00d4ff44; }
+        .face-row.has-video { border-color: #ff990044; }
+
+        /* 缩略图 */
+        .face-thumb-wrap {
+            width: 52px; height: 38px; flex-shrink: 0;
+            border-radius: 4px; overflow: hidden;
+            background: #2a2a2a; border: 1px solid #3a3a3a;
+            cursor: pointer; position: relative;
+        }
+        .face-thumb-wrap img,
+        .face-thumb-wrap video {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+        .face-thumb-empty {
+            width: 100%; height: 100%; display: flex;
+            align-items: center; justify-content: center;
+            font-size: 20px; color: #444;
+        }
+        .video-badge {
+            position: absolute; bottom: 1px; right: 2px;
+            font-size: 8px; background: #ff9900cc;
+            color: #fff; border-radius: 2px; padding: 1px 3px;
+            line-height: 1.4; pointer-events: none;
+        }
+
+        /* 文字信息 */
+        .face-info { flex: 1; min-width: 0; }
+        .face-name { font-size: 11px; color: #00d4ff; font-weight: 600; margin-bottom: 2px; }
+        .face-fname {
+            font-size: 9px; color: #555;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* 按钮 */
+        .face-btns { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+        .btn-upload {
+            padding: 4px 9px; background: #252525;
+            border: 1px solid #444; border-radius: 4px;
+            color: #aaa; font-size: 9px; cursor: pointer;
+            transition: all 0.2s; white-space: nowrap;
+        }
+        .btn-upload:hover { background: #00d4ff1a; border-color: #00d4ff; color: #00d4ff; }
+        .btn-clear {
+            padding: 4px 9px; background: transparent;
+            border: 1px solid #2a2a2a; border-radius: 4px;
+            color: #555; font-size: 9px; cursor: pointer;
+        }
+        .btn-clear:hover { border-color: #ff4444; color: #ff4444; }
+
+        /* 底部工具行 */
+        .tool-row { display: flex; gap: 6px; margin-top: 7px; }
+        .btn-reset {
+            flex: 1; padding: 7px; background: transparent;
+            border: 1px solid #333; border-radius: 5px;
+            color: #666; font-size: 10px; cursor: pointer;
+        }
+        .btn-reset:hover { border-color: #ff6b6b; color: #ff6b6b; }
+
+        /* 预设场景 */
+        .preset-row {
+            display: flex; gap: 5px; flex-wrap: wrap;
+            margin-top: 9px; padding-top: 9px; border-top: 1px solid #1e1e1e;
+        }
+        .preset-btn {
+            flex: 1; min-width: 44px; padding: 6px 3px;
+            background: #1e1e1e; border: 1px solid #333;
+            border-radius: 5px; color: #888; font-size: 9px;
+            cursor: pointer; text-align: center; transition: all 0.25s;
+        }
+        .preset-btn:hover { background: #2a2a2a; color: #fff; }
+        .preset-btn.active {
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            border-color: transparent; color: #000; font-weight: 700;
+        }
+
+        /* 控制滑块 */
+        .control-group { margin-bottom: 9px; }
+        .control-label {
+            font-size: 10px; color: #777; margin-bottom: 4px;
+            display: flex; justify-content: space-between;
+        }
+        .control-label span { color: #00d4ff; }
+        input[type="range"] {
+            width: 100%; height: 4px; -webkit-appearance: none;
+            background: #2a2a2a; border-radius: 2px; outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 14px; height: 14px;
+            background: #00d4ff; border-radius: 50%; cursor: pointer;
+        }
+
+        /* 尺寸输入 */
+        .size-inputs { display: flex; gap: 7px; }
+        .size-input-group { flex: 1; text-align: center; }
+        .size-input-group label { font-size: 9px; color: #555; display: block; margin-bottom: 3px; }
+        .size-input-group input {
+            width: 100%; padding: 5px 3px;
+            background: #1e1e1e; border: 1px solid #333;
+            border-radius: 4px; color: #00d4ff; font-size: 11px; text-align: center;
+        }
+        .size-input-group input:focus { outline: none; border-color: #00d4ff; }
+
+        /* ===== 全屏模式覆盖 - 使用更高优先级选择器 ===== */
+        body.is-fullscreen .container .left-panel {
+            width: 100vw !important;
+            height: 100vh !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            z-index: 9999 !important;
+        }
+        body.is-fullscreen .container .right-panel {
+            display: none !important;
+        }
+        
+        /* ===== 横竖屏适配 ===== */
+        /* 竖屏模式 - 不再强制设置宽度，让JavaScript控制 */
+        @media (orientation: portrait) {
+            .container { flex-direction: column; }
+            /* 移除 .left-panel 和 .right-panel 的宽度设置，避免覆盖JavaScript样式 */
+            .left-panel { height: 55vh; flex-shrink: 0; }
+            .right-panel { height: 45vh; }
+            .hint-text { font-size: 10px; padding: 6px 12px; }
+            .gyro-btn, .fullscreen-btn { font-size: 11px; padding: 6px 10px; }
+            .fullscreen-btn { right: 110px; bottom: 12px; }
+            .gyro-btn { right: 12px; bottom: 12px; }
+            .view-indicator { padding: 8px 12px; }
+            .view-indicator .vi-val { font-size: 14px; }
+            .screens-grid { grid-template-columns: repeat(5, 1fr); gap: 3px; }
+            .screen-item canvas { height: 28px; }
+            .screen-label { font-size: 8px; }
+        }
+        /* 横屏模式 - 手机横屏 - 不再强制设置宽度，让JavaScript控制 */
+        @media (orientation: landscape) and (max-height: 500px) {
+            .container { flex-direction: row; }
+            .left-panel { height: 100vh; }
+            .right-panel { height: 100vh; }
+            .hint-text { font-size: 10px; padding: 6px 12px; }
+            .gyro-btn, .fullscreen-btn { font-size: 11px; padding: 6px 10px; }
+            .fullscreen-btn { right: 110px; bottom: 12px; }
+            .gyro-btn { right: 12px; bottom: 12px; }
+            .view-indicator { padding: 8px 12px; }
+            .view-indicator .vi-val { font-size: 14px; }
+            .screens-grid { grid-template-columns: repeat(5, 1fr); gap: 3px; }
+            .screen-item canvas { height: 28px; }
+            .screen-label { font-size: 8px; }
+        }
+        /* 横屏时右侧面板宽度 - 注释掉，让JavaScript控制 */
+        /* @media (min-width: 861px) and (orientation: landscape) {
+            .right-panel { width: 38%; }
+        } */
+        /* 横屏大屏（平板横着） - 注释掉，让JavaScript控制 */
+        /* @media (min-width: 1100px) and (orientation: landscape) {
+            .right-panel { width: 32%; }
+            .left-panel { width: 68%; }
+        } */
+        
+        /* ===== 退出全屏时强制恢复布局 - 必须放在媒体查询之后以确保最高优先级 ===== */
+        /* 使用 html 标签增加选择器优先级 */
+        html body:not(.is-fullscreen) .container .left-panel {
+            width: 62% !important;
+            height: 100vh !important;
+            position: relative !important;
+            top: auto !important;
+            left: auto !important;
+            z-index: auto !important;
+        }
+        html body:not(.is-fullscreen) .container .right-panel {
+            display: flex !important;
+            width: 38% !important;
+        }
+
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- ===== 左侧 3D 视图 ===== -->
+    <div class="left-panel">
+        <div class="panel-title">📺 五折幕裸眼3D</div>
+        <canvas id="viewer3d"></canvas>
+        <div class="view-indicator">
+            <div class="vi-title">当前视角</div>
+            <div class="vi-angles">
+                <div class="vi-item"><div class="vi-label">左右</div><div class="vi-val" id="yawDisplay">0°</div></div>
+                <div class="vi-item"><div class="vi-label">上下</div><div class="vi-val" id="pitchDisplay">0°</div></div>
+            </div>
+            <div class="vi-dist">距底面中心: <span id="distDisplay">0.0</span>m</div>
+            <div class="vi-height">人眼高度: 1.65m</div>
+        </div>
+        <div class="hint-text">🖱️ 拖拽转动视角 &nbsp;|&nbsp; 📱 触摸滑动</div>
+        <button class="fullscreen-btn" id="fullscreenBtn" onclick="toggleFullscreen()">⛶ 全屏</button>
+        <button class="gyro-btn" id="gyroBtn" onclick="toggleGyro()">📱 陀螺仪</button>
+    </div>
+
+    <!-- iOS 陀螺仪权限弹窗 -->
+    <div id="gyro-hint">
+        <p>开启陀螺仪，晃动手机即可转动视角</p>
+        <button class="gyro-hint-btn" onclick="requestGyroPermission()">授权开启</button>
+    </div>
+
+    <!-- ===== 右侧面板 ===== -->
+    <div class="right-panel">
+        <!-- 小预览 -->
+        <div class="screen-previews">
+            <div class="preview-title">📺 各面预览（点击可快速上传）</div>
+            <div class="screens-grid">
+                <div class="screen-item" id="si0" onclick="triggerUpload(0)"><canvas id="sc0"></canvas><div class="screen-label">① 地面</div></div>
+                <div class="screen-item" id="si1" onclick="triggerUpload(1)"><canvas id="sc1"></canvas><div class="screen-label">② 左面</div></div>
+                <div class="screen-item" id="si2" onclick="triggerUpload(2)"><canvas id="sc2"></canvas><div class="screen-label">③ 后面</div></div>
+                <div class="screen-item" id="si3" onclick="triggerUpload(3)"><canvas id="sc3"></canvas><div class="screen-label">④ 右面</div></div>
+                <div class="screen-item" id="si4" onclick="triggerUpload(4)"><canvas id="sc4"></canvas><div class="screen-label">⑤ 顶面</div></div>
+            </div>
+        </div>
+
+        <!-- 控制面板 -->
+        <div class="controls">
+
+            <!-- 5面上传 -->
+            <div class="control-section">
+                <div class="section-title">🖼️ 素材上传（图片 / 视频）</div>
+                <div class="face-list" id="faceList">
+                    <!-- 由JS生成 -->
+                </div>
+                <div class="tool-row">
+                    <button class="btn-reset" onclick="resetAllFaces()">🔄 清空自定义，恢复预设</button>
+                </div>
+                <!-- 预设场景 -->
+                <div class="preset-row">
+                    <button class="preset-btn active" data-preset="waterfall" onclick="loadPreset('waterfall',event)">💧瀑布</button>
+                    <button class="preset-btn" data-preset="cherry"    onclick="loadPreset('cherry',event)">🌸樱花</button>
+                    <button class="preset-btn" data-preset="forest"    onclick="loadPreset('forest',event)">🌲森林</button>
+                    <button class="preset-btn" data-preset="city"      onclick="loadPreset('city',event)">🏙️城市</button>
+                    <button class="preset-btn" data-preset="space"     onclick="loadPreset('space',event)">🌌星空</button>
+                </div>
+            </div>
+
+            <!-- 视角控制 -->
+            <div class="control-section">
+                <div class="section-title">👁️ 视角控制</div>
+                <div class="control-group">
+                    <div class="control-label">左右摇头 <span id="yawVal">0°</span></div>
+                    <input type="range" id="yaw" min="-90" max="90" step="1" value="0">
+                </div>
+                <div class="control-group">
+                    <div class="control-label">上下点头 <span id="pitchVal">0°</span></div>
+                    <input type="range" id="pitch" min="-90" max="90" step="1" value="0">
+                </div>
+            </div>
+
+            <!-- 距离 -->
+            <div class="control-section">
+                <div class="section-title">📏 观众距离</div>
+                <div class="control-group">
+                    <div class="control-label">距底面中心 <span id="viewDistVal">0.0m</span></div>
+                    <input type="range" id="viewDist" min="0" max="10" step="0.5" value="0">
+                </div>
+            </div>
+
+            <!-- 屏幕尺寸 -->
+            <div class="control-section">
+                <div class="section-title">📐 屏幕尺寸（米）</div>
+                <div class="size-inputs">
+                    <div class="size-input-group"><label>宽 X</label><input type="number" id="sizeW" value="7.04" min="1" max="50" step="0.1"></div>
+                    <div class="size-input-group"><label>深 Z</label><input type="number" id="sizeD" value="2.56" min="1" max="50" step="0.1"></div>
+                    <div class="size-input-group"><label>高 Y</label><input type="number" id="sizeH" value="2.56" min="1" max="30" step="0.1"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- 隐藏的 file input（图片+视频）-->
+<input type="file" id="faceFile0" accept="image/*,video/*" style="display:none" onchange="onFileSelected(0)">
+<input type="file" id="faceFile1" accept="image/*,video/*" style="display:none" onchange="onFileSelected(1)">
+<input type="file" id="faceFile2" accept="image/*,video/*" style="display:none" onchange="onFileSelected(2)">
+<input type="file" id="faceFile3" accept="image/*,video/*" style="display:none" onchange="onFileSelected(3)">
+<input type="file" id="faceFile4" accept="image/*,video/*" style="display:none" onchange="onFileSelected(4)">
+
+<script src="https://cdn.bootcdn.net/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ============================================================
+//  全局配置
+// ============================================================
+const VIEWER_HEIGHT = 1.65;
+const FACE_META = [
+    { name: '① 地面',     emoji: '🏔️' },
+    { name: '② 左面',     emoji: '◀️' },
+    { name: '③ 后面(主屏)', emoji: '🖼️' },
+    { name: '④ 右面',     emoji: '▶️' },
+    { name: '⑤ 顶面',     emoji: '☁️' },
+];
+const FACE_COLORS = ['#1e3a1e','#1e1e4a','#1e2a4a','#4a1e1e','#2a1e4a'];
+
+const PRESETS = {
+    waterfall: 'https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=2048&h=1024&fit=crop',
+    cherry:    'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=2048&h=1024&fit=crop',
+    forest:    'https://images.unsplash.com/photo-1448375240586-882707db888b?w=2048&h=1024&fit=crop',
+    city:      'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=2048&h=1024&fit=crop',
+    space:     'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=2048&h=1024&fit=crop',
+};
+
+// ============================================================
+//  状态
+// ============================================================
+let screenW = 7.04, screenD = 2.56, screenH = 2.56;
+let yaw = 0, pitch = 0, viewDist = 0;
+let currentPreset = 'waterfall';
+let panoramaImg = null; // 当前预设全景图
+
+// 每个面的素材：{ type:'image'|'video', src:el, name:string } | null
+let faceMaterials = [null, null, null, null, null];
+
+// Three.js
+let scene3, camera3, renderer3, mainCanvas;
+let screenMeshes = [], screenTextures = []; // screenTextures[i] = { canvas, texture, videoEl? }
+let isDragging = false, prevX = 0, prevY = 0;
+
+// 陀螺仪
+let gyroEnabled = false;
+let gyroTargetYaw = 0, gyroTargetPitch = 0;
+let gyroCalibrated = false;
+let gyroBaseBeta = null, gyroBaseGamma = null;
+const GYRO_SMOOTH = 0.12; // 陀螺仪平滑系数
+
+// ============================================================
+//  构建右侧上传列表
+// ============================================================
+function buildFaceList() {
+    const list = document.getElementById('faceList');
+    list.innerHTML = '';
+    FACE_META.forEach((meta, i) => {
+        const row = document.createElement('div');
+        row.className = 'face-row';
+        row.id = 'faceRow' + i;
+        row.innerHTML = `
+            <div class="face-thumb-wrap" id="faceThumbWrap${i}" onclick="triggerUpload(${i})">
+                <div class="face-thumb-empty">${meta.emoji}</div>
+            </div>
+            <div class="face-info">
+                <div class="face-name">${meta.name}</div>
+                <div class="face-fname" id="faceFname${i}">未上传（使用预设）</div>
+            </div>
+            <div class="face-btns">
+                <button class="btn-upload" onclick="triggerUpload(${i})">📁 上传</button>
+                <button class="btn-clear"  onclick="clearFace(${i})">✕ 清除</button>
+            </div>`;
+        list.appendChild(row);
+    });
+}
+
+// ============================================================
+//  Three.js 初始化
+// ============================================================
+function initThree() {
+    mainCanvas = document.getElementById('viewer3d');
+    scene3 = new THREE.Scene();
+    scene3.background = new THREE.Color(0x111122);
+    camera3 = new THREE.PerspectiveCamera(75, mainCanvas.clientWidth / mainCanvas.clientHeight, 0.1, 500);
+    renderer3 = new THREE.WebGLRenderer({ canvas: mainCanvas, antialias: true });
+    renderer3.setSize(mainCanvas.clientWidth, mainCanvas.clientHeight);
+    renderer3.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    buildScreens();
+    window.addEventListener('resize', onResize);
+    bindEvents();
+    updateCamera();
+    animate();
+}
+
+function buildScreens() {
+    // 清理旧的
+    screenMeshes.forEach(m => scene3.remove(m));
+    screenMeshes = [];
+    // 释放旧视频
+    screenTextures.forEach(t => { if (t.videoEl) { t.videoEl.pause(); t.videoEl.src=''; } });
+    screenTextures = [];
+
+    const w = screenW, h = screenH, d = screenD;
+    // [地面, 左面, 后面, 右面, 顶面]
+    const cfgs = [
+        { gw: w, gh: d, rx: -Math.PI/2, ry: 0,          px: 0,    py: 0,   pz: 0    },
+        { gw: d, gh: h, rx: 0,          ry:  Math.PI/2,  px: -w/2, py: h/2, pz: 0    },
+        { gw: w, gh: h, rx: 0,          ry: 0,           px: 0,    py: h/2, pz: -d/2 },
+        { gw: d, gh: h, rx: 0,          ry: -Math.PI/2,  px:  w/2, py: h/2, pz: 0    },
+        { gw: w, gh: d, rx:  Math.PI/2, ry: 0,           px: 0,    py: h,   pz: 0    },
+    ];
+    // 各面 canvas 尺寸比例须与 PlaneGeometry 宽高比一致，否则图像被拉伸
+    // [地面→w:d, 左面→d:h, 后面→w:h, 右面→d:h, 顶面→w:d]
+    const faceSizes = [
+        { cw: 512, ch: Math.round(512 * d / w) },  // 地面: w×d
+        { cw: 512, ch: Math.round(512 * h / d) },  // 左面: d×h
+        { cw: 512, ch: Math.round(512 * h / w) },  // 后面: w×h
+        { cw: 512, ch: Math.round(512 * h / d) },  // 右面: d×h
+        { cw: 512, ch: Math.round(512 * d / w) },  // 顶面: w×d
+    ];
+    cfgs.forEach((cfg, i) => {
+        const cv = document.createElement('canvas');
+        cv.width  = faceSizes[i].cw;
+        cv.height = faceSizes[i].ch;
+        const tex = new THREE.CanvasTexture(cv);
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        screenTextures.push({ canvas: cv, texture: tex, videoEl: null });
+
+        const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.FrontSide });
+        const geo = new THREE.PlaneGeometry(cfg.gw, cfg.gh);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.rotation.set(cfg.rx, cfg.ry, 0);
+        mesh.position.set(cfg.px, cfg.py, cfg.pz);
+        scene3.add(mesh);
+        screenMeshes.push(mesh);
+    });
+
+    // 边框
+    addBorders();
+    // 应用现有素材
+    for (let i = 0; i < 5; i++) refreshFace(i);
+}
+
+function addBorders() {
+    const mat = new THREE.LineBasicMaterial({ color: 0x00d4ff, transparent: true, opacity: 0.3 });
+    const w = screenW, h = screenH, d = screenD;
+    const pts = [
+        // 底部矩形
+        [-w/2,0,-d/2],[w/2,0,-d/2],[w/2,0,d/2],[-w/2,0,d/2],[-w/2,0,-d/2],
+        // 左前竖线
+        [-w/2,0,d/2],[-w/2,h,d/2],
+        // 左后竖线（跳）
+    ];
+    // 简单8条边
+    const edges = [
+        [[-w/2,0,-d/2],[w/2,0,-d/2]],[[ w/2,0,-d/2],[w/2,0,d/2]],
+        [[ w/2,0, d/2],[-w/2,0,d/2]],[[-w/2,0, d/2],[-w/2,0,-d/2]],
+        [[-w/2,h,-d/2],[w/2,h,-d/2]],[[ w/2,h,-d/2],[w/2,h,d/2]],
+        [[ w/2,h, d/2],[-w/2,h,d/2]],[[-w/2,h, d/2],[-w/2,h,-d/2]],
+        [[-w/2,0,-d/2],[-w/2,h,-d/2]],[[ w/2,0,-d/2],[w/2,h,-d/2]],
+        [[ w/2,0, d/2],[w/2,h,d/2]], [[-w/2,0,d/2],[-w/2,h,d/2]],
+    ];
+    edges.forEach(([a,b]) => {
+        const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]);
+        scene3.add(new THREE.Line(geo, mat));
+    });
+}
+
+// ============================================================
+//  绘制图片到ctx
+// ============================================================
+function drawToCtx(ctx, src, faceIdx, cw, ch) {
+    ctx.drawImage(src, 0, 0, cw, ch);
+}
+
+// ============================================================
+//  刷新某个面（从 faceMaterials[i] 或 panoramaImg）
+// ============================================================
+function refreshFace(i) {
+    const fm = faceMaterials[i];
+    const { canvas, texture } = screenTextures[i];
+    const ctx = canvas.getContext('2d');
+
+    // 停止旧视频
+    if (screenTextures[i].videoEl && (!fm || fm.type !== 'video')) {
+        screenTextures[i].videoEl.pause();
+        screenTextures[i].videoEl.src = '';
+        screenTextures[i].videoEl = null;
+    }
+
+    if (fm && fm.type === 'image') {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        drawToCtx(ctx, fm.src, i, canvas.width, canvas.height);
+        texture.needsUpdate = true;
+        updateSmallPreview(i, canvas);
+
+    } else if (fm && fm.type === 'video') {
+        // 视频模式：由animate()循环更新纹理
+        screenTextures[i].videoEl = fm.src;
+        fm.src.play().catch(()=>{});
+        // 先抓一帧
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        texture.needsUpdate = true;
+
+    } else {
+        // 用全景图预设（或默认色块）
+        drawFromPanorama(i);
+    }
+}
+
+// ============================================================
+//  从全景图裁剪贴图
+// ============================================================
+function drawFromPanorama(i) {
+    const { canvas, texture } = screenTextures[i];
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = FACE_COLORS[i];
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (panoramaImg) {
+        const pW = panoramaImg.width, pH = panoramaImg.height;
+        // 各面裁剪区（从2:1等距圆柱全景图裁取对应部分）
+        // 左面取右侧中间，右面取左侧中间（交换！），这样方向就对了
+        // 顶/底面取全景中间水平条（y=1/4..3/4），避开上下黑边
+        const crops = [
+            [pW*0.25, pH*0.25, pW*0.5, pH*0.5 ],  // 地面：中间水平条
+            [pW*0.625,pH*0.25, pW*0.25,pH*0.5 ],  // 左面：右侧中间(62.5%~87.5%) ← 交换！
+            [pW*0.25, pH*0.25, pW*0.5, pH*0.5 ],  // 后面：中间区域
+            [pW*0.375,pH*0.25, pW*0.25,pH*0.5 ],  // 右面：左侧中间(37.5%~62.5%) ← 交换！
+            [pW*0.25, pH*0.25, pW*0.5, pH*0.5 ],  // 顶面：中间水平条
+        ];
+        const [sx,sy,sw,sh] = crops[i];
+        // 居中填充：计算垂直偏移，使内容在canvas内居中
+        const srcAspect = sw / sh;
+        const dstAspect = canvas.width / canvas.height;
+        let dx = 0, dy = 0, dw = canvas.width, dh = canvas.height;
+        if (srcAspect > dstAspect) {
+            // 源更宽，垂直居中裁切
+            const scaledH = canvas.height * srcAspect / dstAspect;
+            dy = (sh - scaledH) / 2; dh = scaledH;
+        } else {
+            // 源更高，水平居中裁切
+            const scaledW = canvas.width * dstAspect / srcAspect;
+            dx = (sw - scaledW) / 2; dw = scaledW;
+        }
+        try { ctx.drawImage(panoramaImg, sx+dx, sy+dy, dw, dh, 0, 0, canvas.width, canvas.height); } catch(e){}
+    } else {
+        // 彩色默认
+        ctx.fillStyle = '#ffffff22';
+        ctx.font = 'bold 30px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(FACE_META[i].name.replace(/[①-⑤]\s*/,''), canvas.width/2, canvas.height/2);
+    }
+    texture.needsUpdate = true;
+    updateSmallPreview(i, canvas);
+}
+
+// ============================================================
+//  小预览同步
+// ============================================================
+function updateSmallPreview(i, src) {
+    const cv = document.getElementById('sc' + i);
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.drawImage(src, 0,0,cv.width,cv.height);
+}
+
+// ============================================================
+//  上传入口
+// ============================================================
+function triggerUpload(i) { document.getElementById('faceFile' + i).click(); }
+
+function onFileSelected(i) {
+    const file = document.getElementById('faceFile' + i).files[0];
+    if (!file) return;
+
+    const isVideo = file.type.startsWith('video/');
+    const url = URL.createObjectURL(file);
+
+    if (isVideo) {
+        const vid = document.createElement('video');
+        vid.src = url;
+        vid.loop = true;
+        vid.muted = true;
+        vid.playsInline = true;
+        vid.crossOrigin = 'anonymous';
+        vid.oncanplay = () => {
+            faceMaterials[i] = { type: 'video', src: vid, name: file.name };
+            updateFaceUI(i, 'video', url, file.name);
+            refreshFace(i);
+        };
+        vid.load();
+    } else {
+        const img = new Image();
+        img.onload = () => {
+            faceMaterials[i] = { type: 'image', src: img, name: file.name };
+            updateFaceUI(i, 'image', url, file.name);
+            refreshFace(i);
+        };
+        img.src = url;
+    }
+}
+
+function updateFaceUI(i, type, previewUrl, filename) {
+    const wrap = document.getElementById('faceThumbWrap' + i);
+    const fnEl = document.getElementById('faceFname' + i);
+    const rowEl = document.getElementById('faceRow' + i);
+    const siEl  = document.getElementById('si' + i);
+
+    // 缩略图
+    if (type === 'video') {
+        wrap.innerHTML = `<video src="${previewUrl}" muted loop playsinline autoplay style="width:100%;height:100%;object-fit:cover"></video><div class="video-badge">VIDEO</div>`;
+        rowEl.className = 'face-row has-video';
+        siEl.className  = 'screen-item has-video';
+    } else {
+        wrap.innerHTML = `<img src="${previewUrl}" style="width:100%;height:100%;object-fit:cover">`;
+        rowEl.className = 'face-row has-image';
+        siEl.className  = 'screen-item has-custom';
+    }
+    fnEl.textContent = filename;
+
+    // 取消预设高亮（如果所有面都自定义则清空）
+    // 只清高亮，保留 panoramaImg 以供未自定义的面使用
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+}
+
+// ============================================================
+//  清除单面
+// ============================================================
+function clearFace(i) {
+    if (faceMaterials[i]?.type === 'video') {
+        faceMaterials[i].src.pause();
+        faceMaterials[i].src.src = '';
+    }
+    faceMaterials[i] = null;
+    document.getElementById('faceFile' + i).value = '';
+    document.getElementById('faceFname' + i).textContent = '未上传（使用预设）';
+
+    const wrap = document.getElementById('faceThumbWrap' + i);
+    wrap.innerHTML = `<div class="face-thumb-empty">${FACE_META[i].emoji}</div>`;
+    document.getElementById('faceRow' + i).className = 'face-row';
+    document.getElementById('si' + i).className = 'screen-item';
+
+    refreshFace(i);
+    // 恢复预设高亮
+    const btn = document.querySelector(`[data-preset="${currentPreset}"]`);
+    if (btn) btn.classList.add('active');
+}
+
+// ============================================================
+//  清空所有
+// ============================================================
+function resetAllFaces() {
+    for (let i = 0; i < 5; i++) clearFace(i);
+    loadPreset(currentPreset);
+}
+
+// ============================================================
+//  加载预设
+// ============================================================
+function loadPreset(name, event) {
+    currentPreset = name;
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    const btn = event ? event.target : document.querySelector(`[data-preset="${name}"]`);
+    if (btn) btn.classList.add('active');
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+        panoramaImg = img;
+        for (let i = 0; i < 5; i++) if (!faceMaterials[i]) drawFromPanorama(i);
+    };
+    img.onerror = () => {
+        panoramaImg = null;
+        for (let i = 0; i < 5; i++) if (!faceMaterials[i]) drawFromPanorama(i);
+    };
+    img.src = PRESETS[name];
+}
+
+// ============================================================
+//  相机
+// ============================================================
+function updateCamera() {
+    camera3.position.set(0, VIEWER_HEIGHT, viewDist);
+    camera3.rotation.order = 'YXZ';
+    camera3.rotation.y = yaw   * Math.PI / 180;
+    camera3.rotation.x = pitch * Math.PI / 180;
+    document.getElementById('yawDisplay').textContent   = Math.round(yaw)   + '°';
+    document.getElementById('pitchDisplay').textContent = Math.round(pitch) + '°';
+    document.getElementById('distDisplay').textContent  = viewDist.toFixed(1);
+}
+
+function onResize() {
+    camera3.aspect = mainCanvas.clientWidth / mainCanvas.clientHeight;
+    camera3.updateProjectionMatrix();
+    renderer3.setSize(mainCanvas.clientWidth, mainCanvas.clientHeight);
+}
+
+// 横竖屏切换时重置相机宽高比并重新布局
+window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+        // 更新 Three.js 渲染器
+        camera3.aspect = mainCanvas.clientWidth / mainCanvas.clientHeight;
+        camera3.updateProjectionMatrix();
+        renderer3.setSize(mainCanvas.clientWidth, mainCanvas.clientHeight);
+        
+        // 强制重新计算布局
+        document.body.style.display = 'none';
+        document.body.offsetHeight; // 触发重排
+        document.body.style.display = '';
+        
+        // 更新提示文字
+        const isLandscape = window.orientation === 90 || window.orientation === -90;
+        const hintText = document.querySelector('.hint-text');
+        if (hintText) {
+            hintText.textContent = isLandscape ? 
+                '🖱️ 拖拽转动视角 | 📱 横屏模式' : 
+                '🖱️ 拖拽转动视角 | 📱 竖屏模式';
+        }
+    }, 300);
+});
+
+// 监听屏幕方向变化（备用方案）
+if (screen.orientation) {
+    screen.orientation.addEventListener('change', () => {
+        setTimeout(() => {
+            camera3.aspect = mainCanvas.clientWidth / mainCanvas.clientHeight;
+            camera3.updateProjectionMatrix();
+            renderer3.setSize(mainCanvas.clientWidth, mainCanvas.clientHeight);
+        }, 300);
+    });
+}
+
+// ============================================================
+//  动画循环（视频纹理更新 + 陀螺仪平滑）
+// ============================================================
+function animate() {
+    requestAnimationFrame(animate);
+
+    // 陀螺仪平滑插值
+    if (gyroEnabled) {
+        yaw   += (gyroTargetYaw   - yaw)   * GYRO_SMOOTH;
+        pitch += (gyroTargetPitch - pitch) * GYRO_SMOOTH;
+        camera3.position.set(0, VIEWER_HEIGHT, viewDist);
+        camera3.rotation.order = 'YXZ';
+        camera3.rotation.y = yaw   * Math.PI / 180;
+        camera3.rotation.x = pitch * Math.PI / 180;
+        document.getElementById('yawDisplay').textContent   = Math.round(yaw)   + '°';
+        document.getElementById('pitchDisplay').textContent = Math.round(pitch) + '°';
+        document.getElementById('distDisplay').textContent  = viewDist.toFixed(1);
+    }
+
+    // 每帧更新视频纹理
+    screenTextures.forEach((st, i) => {
+        if (st.videoEl && !st.videoEl.paused && st.videoEl.readyState >= 2) {
+            const ctx = st.canvas.getContext('2d');
+            drawToCtx(ctx, st.videoEl, i, st.canvas.width, st.canvas.height);
+            st.texture.needsUpdate = true;
+            updateSmallPreview(i, st.canvas);
+        }
+    });
+
+    renderer3.render(scene3, camera3);
+}
+
+// ============================================================
+//  事件绑定
+// ============================================================
+function bindEvents() {
+    // 滑块
+    document.getElementById('yaw').addEventListener('input', e => {
+        yaw = +e.target.value;
+        document.getElementById('yawVal').textContent = yaw + '°';
+        updateCamera();
+    });
+    document.getElementById('pitch').addEventListener('input', e => {
+        pitch = +e.target.value;
+        document.getElementById('pitchVal').textContent = pitch + '°';
+        updateCamera();
+    });
+    document.getElementById('viewDist').addEventListener('input', e => {
+        viewDist = +e.target.value;
+        document.getElementById('viewDistVal').textContent = viewDist.toFixed(1) + 'm';
+        updateCamera();
+    });
+    ['sizeW','sizeD','sizeH'].forEach(id => {
+        document.getElementById(id).addEventListener('change', () => {
+            screenW = +document.getElementById('sizeW').value || 8;
+            screenD = +document.getElementById('sizeD').value || 8;
+            screenH = +document.getElementById('sizeH').value || 6;
+            buildScreens();
+        });
+    });
+
+    // 鼠标拖拽
+    mainCanvas.addEventListener('mousedown', e => { isDragging=true; prevX=e.clientX; prevY=e.clientY; });
+    window.addEventListener('mousemove', e => {
+        if (!isDragging) return;
+        yaw   = Math.max(-90, Math.min(90, yaw   - (e.clientX-prevX)*0.4));
+        pitch = Math.max(-90, Math.min(90, pitch + (e.clientY-prevY)*0.4));
+        prevX=e.clientX; prevY=e.clientY;
+        document.getElementById('yaw').value   = yaw;
+        document.getElementById('pitch').value = pitch;
+        document.getElementById('yawVal').textContent   = Math.round(yaw)   + '°';
+        document.getElementById('pitchVal').textContent = Math.round(pitch) + '°';
+        updateCamera();
+    });
+    window.addEventListener('mouseup', () => isDragging=false);
+
+    // 触摸
+    mainCanvas.addEventListener('touchstart', e => { isDragging=true; prevX=e.touches[0].clientX; prevY=e.touches[0].clientY; }, {passive:true});
+    mainCanvas.addEventListener('touchmove', e => {
+        if (!isDragging) return;
+        e.preventDefault();
+        yaw   = Math.max(-90, Math.min(90, yaw   - (e.touches[0].clientX-prevX)*0.4));
+        pitch = Math.max(-90, Math.min(90, pitch + (e.touches[0].clientY-prevY)*0.4));
+        prevX=e.touches[0].clientX; prevY=e.touches[0].clientY;
+        document.getElementById('yaw').value   = yaw;
+        document.getElementById('pitch').value = pitch;
+        document.getElementById('yawVal').textContent   = Math.round(yaw)   + '°';
+        document.getElementById('pitchVal').textContent = Math.round(pitch) + '°';
+        updateCamera();
+    }, {passive:false});
+    mainCanvas.addEventListener('touchend', () => isDragging=false);
+}
+
+// ============================================================
+//  全屏切换 - 使用CSS类控制
+// ============================================================
+let isFullscreen = false;
+
+function toggleFullscreen() {
+    const body = document.body;
+    const leftPanel = document.querySelector('.left-panel');
+    
+    if (!isFullscreen) {
+        // 进入全屏模式
+        isFullscreen = true;
+        body.classList.add('is-fullscreen');
+        
+        // 强制设置全屏样式
+        const rightPanel = document.querySelector('.right-panel');
+        leftPanel.style.cssText = 'width: 100vw !important; height: 100vh !important; position: fixed !important; top: 0 !important; left: 0 !important; z-index: 9999 !important;';
+        rightPanel.style.cssText = 'display: none !important;';
+        
+        // 更新按钮状态
+        document.getElementById('fullscreenBtn').classList.add('active');
+        document.getElementById('fullscreenBtn').textContent = '⛶ 退出';
+        
+        // 强制更新画布尺寸
+        setTimeout(() => {
+            if (camera3 && renderer3) {
+                camera3.aspect = leftPanel.clientWidth / leftPanel.clientHeight;
+                camera3.updateProjectionMatrix();
+                renderer3.setSize(leftPanel.clientWidth, leftPanel.clientHeight);
+            }
+        }, 50);
+        
+    } else {
+        // 退出全屏模式
+        isFullscreen = false;
+        body.classList.remove('is-fullscreen');
+        
+        // 强制重置左侧面板样式（解决CSS优先级问题）
+        const rightPanel = document.querySelector('.right-panel');
+        leftPanel.style.cssText = 'width: 62% !important; height: 100vh !important; position: relative !important;';
+        rightPanel.style.cssText = 'display: flex !important; width: 38% !important;';
+        
+        // 更新按钮状态
+        document.getElementById('fullscreenBtn').classList.remove('active');
+        document.getElementById('fullscreenBtn').textContent = '⛶ 全屏';
+        
+        // 恢复画布尺寸
+        setTimeout(() => {
+            onResize();
+        }, 100);
+    }
+}
+
+// 监听ESC键退出全屏
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isFullscreen) {
+        toggleFullscreen();
+    }
+});
+
+// 页面加载时确保布局正确（解决某些浏览器初始状态问题）
+window.addEventListener('load', () => {
+    if (!isFullscreen) {
+        const leftPanel = document.querySelector('.left-panel');
+        const rightPanel = document.querySelector('.right-panel');
+        leftPanel.style.cssText = 'width: 62% !important; height: 100vh !important; position: relative !important;';
+        rightPanel.style.cssText = 'display: flex !important; width: 38% !important;';
+    }
+});
+
+// ============================================================
+//  陀螺仪
+// ============================================================
+function handleOrientation(e) {
+    if (!gyroEnabled) return;
+    const beta  = e.beta  || 0; // 前后倾斜 -180~180
+    const gamma = e.gamma || 0; // 左右倾斜 -90~90
+
+    // 首次校准：记录手机握持的初始角度
+    if (!gyroCalibrated) {
+        gyroBaseBeta  = beta;
+        gyroBaseGamma = gamma;
+        gyroCalibrated = true;
+    }
+
+    // 相对偏移映射到视角（每偏移45° = 全范围视角）
+    gyroTargetPitch = Math.max(-90, Math.min(90, (beta  - gyroBaseBeta)  * 1.5));
+    gyroTargetYaw   = Math.max(-90, Math.min(90, (gamma - gyroBaseGamma) * 1.5));
+
+    // 同步到滑块（仅显示，不触发updateCamera）
+    document.getElementById('yaw').value   = Math.round(gyroTargetYaw);
+    document.getElementById('pitch').value = Math.round(gyroTargetPitch);
+    document.getElementById('yawVal').textContent   = Math.round(gyroTargetYaw)   + '°';
+    document.getElementById('pitchVal').textContent = Math.round(gyroTargetPitch) + '°';
+}
+
+async function requestGyroPermission() {
+    document.getElementById('gyro-hint').classList.remove('show');
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+            const perm = await DeviceOrientationEvent.requestPermission();
+            if (perm === 'granted') { startGyro(); }
+            else { alert('陀螺仪权限被拒绝，请开启权限后重试'); }
+        } catch(err) { alert('权限请求失败: ' + err); }
+    } else {
+        startGyro();
+    }
+}
+
+function startGyro() {
+    gyroEnabled = true;
+    gyroCalibrated = false;
+    window.addEventListener('deviceorientation', handleOrientation);
+    document.getElementById('gyroBtn').classList.add('active');
+    document.getElementById('gyroBtn').textContent = '📱 陀螺仪 ✓';
+}
+
+function stopGyro() {
+    gyroEnabled = false;
+    gyroCalibrated = false;
+    window.removeEventListener('deviceorientation', handleOrientation);
+    document.getElementById('gyroBtn').classList.remove('active');
+    document.getElementById('gyroBtn').textContent = '📱 陀螺仪';
+}
+
+
+
+// ============================================================
+//  陀螺仪 - 修复版
+// ============================================================
+function toggleGyro() {
+    if (gyroEnabled) { 
+        stopGyro(); 
+    }
+    else {
+        // 检查是否支持陀螺仪
+        if (!window.DeviceOrientationEvent) {
+            alert('您的设备不支持陀螺仪功能');
+            return;
+        }
+        
+        // iOS 13+ 需要请求权限
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            document.getElementById('gyro-hint').classList.add('show');
+        } else {
+            // Android 或其他设备直接启动
+            startGyro();
+        }
+    }
+}
+
+// ============================================================
+//  启动
+// ============================================================
+buildFaceList();
+initThree();
+loadPreset('waterfall');
+</script>
+</body>
+</html>
