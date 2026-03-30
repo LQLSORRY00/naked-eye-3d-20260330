@@ -269,19 +269,22 @@
             .left-panel { width: 68%; }
         } */
         
-        /* ===== 退出全屏时强制恢复布局 - 必须放在媒体查询之后以确保最高优先级 ===== */
-        /* 使用 html 标签增加选择器优先级 */
-        html body:not(.is-fullscreen) .container .left-panel {
-            width: 62% !important;
-            height: 100vh !important;
-            position: relative !important;
-            top: auto !important;
-            left: auto !important;
-            z-index: auto !important;
-        }
-        html body:not(.is-fullscreen) .container .right-panel {
-            display: flex !important;
-            width: 38% !important;
+        /* ===== 退出全屏时强制恢复布局 - 仅在横屏时生效，不覆盖竖屏布局 ===== */
+        /* 使用 html 标签增加选择器优先级，但排除竖屏模式 */
+        html body:not(.is-fullscreen):not(.is-portrait) .container .left-panel,
+        @media (orientation: landscape) {
+            html body:not(.is-fullscreen) .container .left-panel {
+                width: 62% !important;
+                height: 100vh !important;
+                position: relative !important;
+                top: auto !important;
+                left: auto !important;
+                z-index: auto !important;
+            }
+            html body:not(.is-fullscreen) .container .right-panel {
+                display: flex !important;
+                width: 38% !important;
+            }
         }
 
     </style>
