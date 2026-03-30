@@ -228,12 +228,11 @@
         }
         
         /* ===== 横竖屏适配 ===== */
-        /* 竖屏模式 - 不再强制设置宽度，让JavaScript控制 */
+        /* 竖屏模式 - 保持左右布局，缩小比例 */
         @media (orientation: portrait) {
-            .container { flex-direction: column; }
-            /* 移除 .left-panel 和 .right-panel 的宽度设置，避免覆盖JavaScript样式 */
-            .left-panel { height: 55vh; flex-shrink: 0; }
-            .right-panel { height: 45vh; }
+            .container { flex-direction: row; }
+            .left-panel { height: 100vh; }
+            .right-panel { height: 100vh; overflow-y: auto; }
             .hint-text { font-size: 10px; padding: 6px 12px; }
             .gyro-btn, .fullscreen-btn { font-size: 11px; padding: 6px 10px; }
             .fullscreen-btn { right: 110px; bottom: 12px; }
