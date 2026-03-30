@@ -899,13 +899,13 @@ function toggleFullscreen() {
         else if (document.webkitCancelFullScreen) document.webkitCancelFullScreen();
         else if (document.msExitFullscreen) document.msExitFullscreen();
 
-        // 恢复布局
+        // 恢复布局 - 强制重置所有可能改变的样式
         container.style.display = '';
         container.style.flexDirection = '';
-        leftPanel.style.width = '';
-        leftPanel.style.height = '';
-        leftPanel.style.flex = '';
-        rightPanel.style.display = '';
+        leftPanel.style.cssText = '';
+        rightPanel.style.cssText = '';
+        // 强制触发重排以确保样式生效
+        document.body.offsetHeight;
 
         // 恢复视角
         yaw = savedYaw;
@@ -934,13 +934,13 @@ document.addEventListener('fullscreenchange', () => {
         const rightPanel = document.querySelector('.right-panel');
         const container = document.querySelector('.container');
 
-        // 恢复布局
+        // 恢复布局 - 强制重置所有可能改变的样式
         container.style.display = '';
         container.style.flexDirection = '';
-        leftPanel.style.width = '';
-        leftPanel.style.height = '';
-        leftPanel.style.flex = '';
-        rightPanel.style.display = '';
+        leftPanel.style.cssText = '';
+        rightPanel.style.cssText = '';
+        // 强制触发重排以确保样式生效
+        document.body.offsetHeight;
 
         // 恢复视角
         yaw = savedYaw;
