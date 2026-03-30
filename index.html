@@ -1,11 +1,8 @@
-<!-- Version 2.1 - Mobile Layout Fix - 2025-03-30 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>五折幕裸眼3D演示</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -57,7 +54,6 @@
             background: rgba(0,0,0,0.8); padding: 8px 16px;
             border-radius: 18px; font-size: 12px; color: #888;
             border: 1px solid #333; cursor: pointer; transition: all 0.3s;
-            z-index: 100;
         }
         .fullscreen-btn:hover { border-color: #ff9900; color: #ff9900; }
         .fullscreen-btn.active { border-color: #ff9900; color: #ff9900; }
@@ -215,27 +211,14 @@
         }
         .size-input-group input:focus { outline: none; border-color: #00d4ff; }
 
-        /* ===== 全屏模式覆盖 - 使用更高优先级选择器 ===== */
-        body.is-fullscreen .container .left-panel {
-            width: 100vw !important;
-            height: 100vh !important;
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            z-index: 9999 !important;
-        }
-        body.is-fullscreen .container .right-panel {
-            display: none !important;
-        }
-        
         /* ===== 横竖屏适配 ===== */
-        /* 竖屏模式 - 上下布局 */
-        @media (orientation: portrait) {
+        @media (max-width: 860px), (orientation: portrait) {
             .container { flex-direction: column; }
+            .left-panel, .right-panel { width: 100% !important; height: auto; }
             .left-panel { height: 55vh; flex-shrink: 0; }
-            .right-panel { height: 45vh; overflow-y: auto; }
+            .right-panel { height: 45vh; }
             .hint-text { font-size: 10px; padding: 6px 12px; }
-            .gyro-btn, .fullscreen-btn { font-size: 11px; padding: 6px 10px; }
+            .gyro-btn, .fullscreen-btn { font-size: 11px; padding: 6px 12px; }
             .fullscreen-btn { right: 110px; bottom: 12px; }
             .gyro-btn { right: 12px; bottom: 12px; }
             .view-indicator { padding: 8px 12px; }
@@ -244,49 +227,15 @@
             .screen-item canvas { height: 28px; }
             .screen-label { font-size: 8px; }
         }
-        /* 横屏模式 - 手机横屏 - 不再强制设置宽度，让JavaScript控制 */
-        @media (orientation: landscape) and (max-height: 500px) {
-            .container { flex-direction: row; }
-            .left-panel { height: 100vh; }
-            .right-panel { height: 100vh; }
-            .hint-text { font-size: 10px; padding: 6px 12px; }
-            .gyro-btn, .fullscreen-btn { font-size: 11px; padding: 6px 10px; }
-            .fullscreen-btn { right: 110px; bottom: 12px; }
-            .gyro-btn { right: 12px; bottom: 12px; }
-            .view-indicator { padding: 8px 12px; }
-            .view-indicator .vi-val { font-size: 14px; }
-            .screens-grid { grid-template-columns: repeat(5, 1fr); gap: 3px; }
-            .screen-item canvas { height: 28px; }
-            .screen-label { font-size: 8px; }
-        }
-        /* 横屏时右侧面板宽度 - 注释掉，让JavaScript控制 */
-        /* @media (min-width: 861px) and (orientation: landscape) {
+        /* 横屏时右侧面板宽度 */
+        @media (min-width: 861px) and (orientation: landscape) {
             .right-panel { width: 38%; }
-        } */
-        /* 横屏大屏（平板横着） - 注释掉，让JavaScript控制 */
-        /* @media (min-width: 1100px) and (orientation: landscape) {
+        }
+        /* 横屏大屏（平板横着） */
+        @media (min-width: 1100px) and (orientation: landscape) {
             .right-panel { width: 32%; }
             .left-panel { width: 68%; }
-        } */
-        
-        /* ===== 退出全屏时强制恢复布局 - 仅在横屏时生效，不覆盖竖屏布局 ===== */
-        /* 使用 html 标签增加选择器优先级，但排除竖屏模式 */
-        html body:not(.is-fullscreen):not(.is-portrait) .container .left-panel,
-        @media (orientation: landscape) {
-            html body:not(.is-fullscreen) .container .left-panel {
-                width: 62% !important;
-                height: 100vh !important;
-                position: relative !important;
-                top: auto !important;
-                left: auto !important;
-                z-index: auto !important;
-            }
-            html body:not(.is-fullscreen) .container .right-panel {
-                display: flex !important;
-                width: 38% !important;
-            }
         }
-
     </style>
 </head>
 <body>
@@ -786,45 +735,27 @@ function updateCamera() {
 }
 
 function onResize() {
-    camera3.aspect = mainCanvas.clientWidth / mainCanvas.clientHeight;
-    camera3.updateProjectionMatrix();
-    renderer3.setSize(mainCanvas.clientWidth, mainCanvas.clientHeight);
-}
-
-// 横竖屏切换时重置相机宽高比并重新布局
-window.addEventListener('orientationchange', () => {
-    setTimeout(() => {
-        // 更新 Three.js 渲染器
+    if (isFSMode) {
+        // 全屏模式
+        camera3.aspect = window.innerWidth / window.innerHeight;
+        camera3.updateProjectionMatrix();
+        renderer3.setSize(window.innerWidth, window.innerHeight);
+    } else {
+        // 正常模式
         camera3.aspect = mainCanvas.clientWidth / mainCanvas.clientHeight;
         camera3.updateProjectionMatrix();
         renderer3.setSize(mainCanvas.clientWidth, mainCanvas.clientHeight);
-        
-        // 强制重新计算布局
-        document.body.style.display = 'none';
-        document.body.offsetHeight; // 触发重排
-        document.body.style.display = '';
-        
-        // 更新提示文字
-        const isLandscape = window.orientation === 90 || window.orientation === -90;
-        const hintText = document.querySelector('.hint-text');
-        if (hintText) {
-            hintText.textContent = isLandscape ? 
-                '🖱️ 拖拽转动视角 | 📱 横屏模式' : 
-                '🖱️ 拖拽转动视角 | 📱 竖屏模式';
-        }
-    }, 300);
-});
-
-// 监听屏幕方向变化（备用方案）
-if (screen.orientation) {
-    screen.orientation.addEventListener('change', () => {
-        setTimeout(() => {
-            camera3.aspect = mainCanvas.clientWidth / mainCanvas.clientHeight;
-            camera3.updateProjectionMatrix();
-            renderer3.setSize(mainCanvas.clientWidth, mainCanvas.clientHeight);
-        }, 300);
-    });
+    }
 }
+
+// 横竖屏切换时重置相机宽高比
+window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+        camera3.aspect = mainCanvas.clientWidth / mainCanvas.clientHeight;
+        camera3.updateProjectionMatrix();
+        renderer3.setSize(mainCanvas.clientWidth, mainCanvas.clientHeight);
+    }, 100);
+});
 
 // ============================================================
 //  动画循环（视频纹理更新 + 陀螺仪平滑）
@@ -920,72 +851,113 @@ function bindEvents() {
 }
 
 // ============================================================
-//  全屏切换 - 使用CSS类控制
+//  全屏切换
 // ============================================================
-let isFullscreen = false;
+// 保存退出前的视角
+let savedYaw = 0, savedPitch = 0, savedDist = 10;
+let isFSMode = false;
 
 function toggleFullscreen() {
-    const body = document.body;
+    const el = document.documentElement;
     const leftPanel = document.querySelector('.left-panel');
-    
-    if (!isFullscreen) {
-        // 进入全屏模式
-        isFullscreen = true;
-        body.classList.add('is-fullscreen');
+    const rightPanel = document.querySelector('.right-panel');
+    const container = document.querySelector('.container');
+
+    if (!isFSMode) {
+        // 进入全屏
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else if (el.msRequestFullscreen) el.msRequestFullscreen();
+
+        // 保存当前视角
+        savedYaw = yaw;
+        savedPitch = pitch;
+        savedDist = viewDist;
+
+        // 全屏布局 - 左侧占满全屏
+        container.style.display = 'flex';
+        container.style.flexDirection = 'row';
+        leftPanel.style.width = '100vw';
+        leftPanel.style.height = '100vh';
+        leftPanel.style.flex = 'none';
+        rightPanel.style.display = 'none';
         
-        // 强制设置全屏样式
-        const rightPanel = document.querySelector('.right-panel');
-        leftPanel.style.cssText = 'width: 100vw !important; height: 100vh !important; position: fixed !important; top: 0 !important; left: 0 !important; z-index: 9999 !important;';
-        rightPanel.style.cssText = 'display: none !important;';
-        
-        // 更新按钮状态
-        document.getElementById('fullscreenBtn').classList.add('active');
-        document.getElementById('fullscreenBtn').textContent = '⛶ 退出';
-        
-        // 强制更新画布尺寸
+        // 调整canvas尺寸
         setTimeout(() => {
-            if (camera3 && renderer3) {
-                camera3.aspect = leftPanel.clientWidth / leftPanel.clientHeight;
-                camera3.updateProjectionMatrix();
-                renderer3.setSize(leftPanel.clientWidth, leftPanel.clientHeight);
-            }
+            camera3.aspect = window.innerWidth / window.innerHeight;
+            camera3.updateProjectionMatrix();
+            renderer3.setSize(window.innerWidth, window.innerHeight);
         }, 50);
         
+        document.getElementById('fullscreenBtn').classList.add('active');
+        document.getElementById('fullscreenBtn').textContent = '⛶ 退出';
+        isFSMode = true;
     } else {
-        // 退出全屏模式
-        isFullscreen = false;
-        body.classList.remove('is-fullscreen');
-        
-        // 强制重置左侧面板样式（解决CSS优先级问题）
-        const rightPanel = document.querySelector('.right-panel');
-        leftPanel.style.cssText = 'width: 62% !important; height: 100vh !important; position: relative !important;';
-        rightPanel.style.cssText = 'display: flex !important; width: 38% !important;';
-        
-        // 更新按钮状态
+        // 退出全屏
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        else if (document.webkitCancelFullScreen) document.webkitCancelFullScreen();
+        else if (document.msExitFullscreen) document.msExitFullscreen();
+
+        // 恢复布局
+        container.style.display = '';
+        container.style.flexDirection = '';
+        leftPanel.style.width = '';
+        leftPanel.style.height = '';
+        leftPanel.style.flex = '';
+        rightPanel.style.display = '';
+
+        // 恢复视角
+        yaw = savedYaw;
+        pitch = savedPitch;
+        viewDist = savedDist;
+        document.getElementById('yaw').value = yaw;
+        document.getElementById('yawVal').textContent = yaw + '°';
+        document.getElementById('pitch').value = pitch;
+        document.getElementById('pitchVal').textContent = pitch + '°';
+        document.getElementById('dist').value = viewDist;
+        document.getElementById('distVal').textContent = viewDist.toFixed(1) + 'm';
+        updateCamera();
+        setTimeout(onResize, 100);
+
         document.getElementById('fullscreenBtn').classList.remove('active');
         document.getElementById('fullscreenBtn').textContent = '⛶ 全屏';
-        
-        // 恢复画布尺寸
-        setTimeout(() => {
-            onResize();
-        }, 100);
+        isFSMode = false;
     }
 }
 
-// 监听ESC键退出全屏
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isFullscreen) {
-        toggleFullscreen();
-    }
-});
-
-// 页面加载时确保布局正确（解决某些浏览器初始状态问题）
-window.addEventListener('load', () => {
-    if (!isFullscreen) {
+// 监听ESC键和全屏变化事件
+document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && isFSMode) {
+        // ESC退出全屏，需要手动恢复状态
         const leftPanel = document.querySelector('.left-panel');
         const rightPanel = document.querySelector('.right-panel');
-        leftPanel.style.cssText = 'width: 62% !important; height: 100vh !important; position: relative !important;';
-        rightPanel.style.cssText = 'display: flex !important; width: 38% !important;';
+        const container = document.querySelector('.container');
+
+        // 恢复布局
+        container.style.display = '';
+        container.style.flexDirection = '';
+        leftPanel.style.width = '';
+        leftPanel.style.height = '';
+        leftPanel.style.flex = '';
+        rightPanel.style.display = '';
+
+        // 恢复视角
+        yaw = savedYaw;
+        pitch = savedPitch;
+        viewDist = savedDist;
+        document.getElementById('yaw').value = yaw;
+        document.getElementById('yawVal').textContent = yaw + '°';
+        document.getElementById('pitch').value = pitch;
+        document.getElementById('pitchVal').textContent = pitch + '°';
+        document.getElementById('dist').value = viewDist;
+        document.getElementById('distVal').textContent = viewDist.toFixed(1) + 'm';
+        updateCamera();
+        setTimeout(onResize, 100);
+
+        document.getElementById('fullscreenBtn').classList.remove('active');
+        document.getElementById('fullscreenBtn').textContent = '⛶ 全屏';
+        isFSMode = false;
     }
 });
 
@@ -1044,27 +1016,13 @@ function stopGyro() {
     document.getElementById('gyroBtn').textContent = '📱 陀螺仪';
 }
 
-
-
-// ============================================================
-//  陀螺仪 - 修复版
-// ============================================================
 function toggleGyro() {
-    if (gyroEnabled) { 
-        stopGyro(); 
-    }
+    if (gyroEnabled) { stopGyro(); }
     else {
-        // 检查是否支持陀螺仪
-        if (!window.DeviceOrientationEvent) {
-            alert('您的设备不支持陀螺仪功能');
-            return;
-        }
-        
-        // iOS 13+ 需要请求权限
+        // 非iOS直接启动，iOS弹出授权框
         if (typeof DeviceOrientationEvent.requestPermission === 'function') {
             document.getElementById('gyro-hint').classList.add('show');
         } else {
-            // Android 或其他设备直接启动
             startGyro();
         }
     }
